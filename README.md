@@ -26,7 +26,6 @@ To turn up your first dashboard and test if your installation works, type:
 ktdashboard -demo tests/test_cache_1000.json
 ```
 This creates a KTdashboard using a test cache with about a 1000 different benchmark configurations in it.
-The ``-demo`` switch enables demo mode, which means that KTdashboard mimicks a live tuning run.
 
 KTdashboard uses Kernel Tuner's cachefiles to visualize the auto-tuning results as they come in. Cache files are used within 
 Kernel Tuner to record all information about all benchmarked kernel configurations. This allows the tuner to do several 
@@ -39,6 +38,15 @@ When you are using Kernel Tuner for a long auto-tuning run be sure to use the op
 allows you to monitor the tuner's progress using:
 ```
 ktdashboard my_cache_filename.json
+```
+
+You can choose the backend to visualize results. Example:
+```
+# Launch the Panel + Bokeh dashboard (default)
+ktdashboard my_cache_filename.json
+
+# Launch the Streamlit + Plotly dashboard
+ktdashboard --backend streamlit my_cache_filename.json
 ```
 
 ## License, contributions, citation

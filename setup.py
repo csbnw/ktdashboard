@@ -27,6 +27,6 @@ setup(
         'Topic :: System :: Distributed Computing',
         'Development Status :: 3 - Alpha ',
     ],
-    install_requires=['bokeh','pandas','panel'],
+    install_requires=['bokeh','pandas','panel','streamlit','plotly'],
     entry_points={'console_scripts': ['ktdashboard = ktdashboard.ktdashboard:cli']},
 )
