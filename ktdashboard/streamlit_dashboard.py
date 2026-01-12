@@ -12,6 +12,7 @@ class StreamlitDashboard:
     def __init__(self, cachefile: str):
         self.model = Dashboard(cachefile)
         self.df = self.model.data_df
+        self.plot_height = 600
 
     def plot_scatter(
         self,
@@ -53,8 +54,7 @@ class StreamlitDashboard:
             y="_y",
             color=color_arg,
             hover_data=df_plot.columns,
-            height=600,
-            width=900,
+            height=self.plot_height,
             labels={"_x": x, "_y": y},
             **color_kwargs,
         )
@@ -109,6 +109,9 @@ class StreamlitDashboard:
         xscale = st.sidebar.radio("X axis scale", options=["linear", "log"], index=0)
         yscale = st.sidebar.radio("Y axis scale", options=["linear", "log"], index=0)
 
+        # Show table control
+        show_table = st.sidebar.checkbox("Show table", value=True)
+
         # Color palette chooser (sequential palettes only)
         seq_names = [
             name
@@ -134,6 +137,10 @@ class StreamlitDashboard:
 
         st.markdown(f"## Auto-tuning {kernel_name} on {device_name}")
 
+        plot_height = self.plot_height
+        if not show_table:
+            plot_height = int(plot_height * 1.5)
+
         fig = self.plot_scatter(
             filtered_df,
             xvariable,
@@ -143,17 +150,17 @@ class StreamlitDashboard:
             yscale,
             palette=palette,
         )
-        st.plotly_chart(fig, width="stretch")
 
-        st.markdown("---")
-        st.markdown("### Top results")
+        st.plotly_chart(fig, height=plot_height, width="stretch")
 
-        # Show best by selected y (if numeric)
-        if pd.api.types.is_numeric_dtype(filtered_df[yvariable]):
-            sorted_df = filtered_df.sort_values(yvariable).head(10)
-            st.dataframe(sorted_df)
-        else:
-            st.dataframe(filtered_df)
+        if show_table:
+            st.markdown("---")
+
+            if pd.api.types.is_numeric_dtype(filtered_df[yvariable]):
+                sorted_df = filtered_df.sort_values(yvariable)
+                st.dataframe(sorted_df)
+            else:
+                st.dataframe(filtered_df)
 
 
 def serve_streamlit(cachefile: str) -> None:

@@ -5,14 +5,21 @@ import pandas as pd
 import bokeh.palettes
 from bokeh.models.ranges import FactorRange
 from bokeh.transform import jitter
-from bokeh.models import HoverTool, LinearColorMapper, CategoricalColorMapper
+from bokeh.models import (
+    DataTable,
+    CategoricalColorMapper,
+    HoverTool,
+    LinearColorMapper,
+    TableColumn,
+)
 from bokeh.plotting import ColumnDataSource, figure
 
 from dashboard import Dashboard
 
 
 class PanelDashboard:
-    def __init__(self, cachefile: str, default_key: Optional[str] = None):
+    def __init__(
+        self, cachefile: str, default_key: Optional[str] = None):
         self.model = Dashboard(cachefile)
 
         # local copies for UI
@@ -67,14 +74,18 @@ class PanelDashboard:
         self.xscale = pnw.RadioButtonGroup(name="xscale", options=["linear", "log"])
         self.yscale = pnw.RadioButtonGroup(name="yscale", options=["linear", "log"])
 
+        # checkbox to show/hide the data table, toggling re-renders the pane
+        self.show_table_checkbox = pnw.Checkbox(name="Show table", value=False)
+
         # connect widgets
         self.scatter = pn.bind(
-            self.make_scatter,
+            self.make_pane,
             xvariable=self.xvariable,
             yvariable=self.yvariable,
             color_by=self.colorvariable,
             xscale=self.xscale,
             yscale=self.yscale,
+            show_table=self.show_table_checkbox,
         )
 
         # build up the dashboard
@@ -86,6 +97,8 @@ class PanelDashboard:
         self.dashboard.sidebar.append(pn.layout.Divider())
         self.dashboard.sidebar.append(pn.Row(pn.pane.Markdown("X axis"), self.xscale))
         self.dashboard.sidebar.append(pn.Row(pn.pane.Markdown("Y axis"), self.yscale))
+        self.dashboard.sidebar.append(pn.layout.Divider())
+        self.dashboard.sidebar.append(self.show_table_checkbox)
         self.dashboard.sidebar.append(pn.layout.Divider())
 
         for tune_param in self.tune_param_keys:
@@ -146,7 +159,7 @@ class PanelDashboard:
         color = {"field": color_by, "transform": color_mapper}
         return color
 
-    def make_scatter(self, xvariable, yvariable, color_by, xscale, yscale):
+    def make_pane(self, xvariable, yvariable, color_by, xscale, yscale, show_table: bool = True):
         color = self.update_colors(color_by)
 
         x = xvariable
@@ -155,6 +168,12 @@ class PanelDashboard:
         plot_options = dict(self.plot_options)
         plot_options["x_axis_type"] = xscale
         plot_options["y_axis_type"] = yscale
+
+        # If the table is disabled we want the plot to take the full page height
+        if not show_table:
+            plot_options.pop("height", None)
+            plot_options.pop("min_height", None)
+            plot_options["sizing_mode"] = "stretch_both"
 
         dtype = self.data_df.dtypes.get(xvariable)
         if pd.api.types.is_categorical_dtype(dtype):
@@ -183,19 +202,40 @@ class PanelDashboard:
         f.xaxis.axis_label = xvariable
         f.yaxis.axis_label = yvariable
 
-        bokeh_pane = pn.pane.Bokeh(
-            object=f,
-            min_width=self.plot_width,
-            min_height=self.plot_height,
-            max_width=self.plot_width,
-            max_height=self.plot_height,
+        # DataTable showing the raw data
+        columns = [TableColumn(field=c, title=c) for c in self.source.column_names][1:]
+        data_table = DataTable(
+            source=self.source,
+            columns=columns,
+            selectable=True,
+            sizing_mode="stretch_width",
         )
-        pane = pn.Column(
-            pn.pane.Markdown(
-                f"## Auto-tuning {self.model.kernel_name} on {self.model.device_name}"
-            ),
-            bokeh_pane,
+
+        pane_title = (
+            f"## Auto-tuning {self.model.kernel_name} on {self.model.device_name}"
         )
+
+        if show_table:
+            bokeh_pane = pn.pane.Bokeh(
+                object=f,
+                sizing_mode="stretch_width",
+                min_height=self.plot_height,
+                max_height=self.plot_height,
+            )
+            pane_children = [
+                pn.pane.Markdown(pane_title),
+                bokeh_pane,
+                pn.layout.Divider(),
+                data_table,
+            ]
+        else:
+            bokeh_pane = pn.pane.Bokeh(object=f, sizing_mode="stretch_both")
+            pane_children = [
+                pn.pane.Markdown(pane_title),
+                bokeh_pane,
+            ]
+
+        pane = pn.Column(*pane_children)
         return pane
 
     def update_plot(self, i):
@@ -208,7 +248,7 @@ class PanelDashboard:
             self.source.stream(self._convert_stream_dict(sd))
 
 
-def serve_panel(cachefile: str) -> None:
+def serve_panel(cachefile: str, show_table: bool = True) -> None:
     ui = PanelDashboard(cachefile)
 
     ui.dashboard.servable()
