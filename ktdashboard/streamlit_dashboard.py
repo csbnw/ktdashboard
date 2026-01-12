@@ -4,15 +4,30 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import numpy as np
+import tempfile
 
 from dashboard import Dashboard
 
 
 class StreamlitDashboard:
-    def __init__(self, cachefile: str):
-        self.model = Dashboard(cachefile)
-        self.df = self.model.data_df
+    def __init__(self, cachefile: str | None = None, show_table: bool = True):
+        self.cachefile = cachefile
+        self.model = Dashboard(cachefile) if cachefile else None
+        self.df = self.model.data_df if self.model else pd.DataFrame()
         self.plot_height = 600
+        self.show_table = show_table
+
+    def load_from_uploaded_file(self, uploaded_file) -> None:
+        tf = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+        content = uploaded_file.read()
+        #if isinstance(content, str):
+        #    content = content.encode("utf-8")
+        tf.write(content)
+        tf.flush()
+        tf.close()
+        self.cachefile = tf.name
+        self.model = Dashboard(self.cachefile)
+        self.df = self.model.data_df
 
     def plot_scatter(
         self,
@@ -78,6 +93,17 @@ class StreamlitDashboard:
     def render(self):
         st.set_page_config(layout="wide", page_title="Kernel Tuner Dashboard")
 
+        if self.model is None:
+            uploaded = st.sidebar.file_uploader("Upload a cache file", type=["json"])
+            if uploaded is None:
+                st.info("Upload a cache JSON file via the sidebar to get started.")
+                return
+            try:
+                self.load_from_uploaded_file(uploaded)
+            except Exception as e:
+                st.error(f"Failed to read uploaded file: {e}")
+                return
+
         kernel_name = self.model.kernel_name
         device_name = self.model.device_name
 
@@ -109,7 +135,7 @@ class StreamlitDashboard:
         yscale = st.sidebar.radio("Y axis scale", options=["linear", "log"], index=0)
 
         # Show table control
-        show_table = st.sidebar.checkbox("Show table", value=True)
+        show_table = st.sidebar.checkbox("Show table", value=self.show_table)
 
         # Color palette chooser (sequential palettes only)
         seq_names = [
@@ -162,13 +188,19 @@ class StreamlitDashboard:
                 st.dataframe(filtered_df)
 
 
-def serve_streamlit(cachefile: str) -> None:
-    sd = StreamlitDashboard(cachefile)
+def serve_streamlit(cachefile: str | None = None, show_table: bool = True) -> None:
+    sd = StreamlitDashboard(cachefile, show_table=show_table)
     sd.render()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="ktdashboard")
-    parser.add_argument("filename", help="Path to cache JSON file")
+    parser.add_argument("filename", nargs="?", help="Path to cache JSON file (optional)")
+    parser.add_argument(
+        "--table",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable data table (default: enabled)",
+    )
     args = parser.parse_args()
-    serve_streamlit(args.filename)
+    serve_streamlit(args.filename if args.filename else None, show_table=args.table)

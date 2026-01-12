@@ -3,8 +3,6 @@ import argparse, subprocess, sys, os
 
 
 def main():
-    """Command-line interface with backend selection."""
-
     parser = argparse.ArgumentParser(prog="ktdashboard")
     parser.add_argument(
         "--backend",
@@ -12,11 +10,25 @@ def main():
         default="panel",
         help="Backend to use for visualization",
     )
-    parser.add_argument("filename", help="Path to cache JSON file")
+    parser.add_argument(
+        "filename", nargs="?", help="Path to cache JSON file (optional for streamlit)"
+    )
 
     args = parser.parse_args()
 
-    if not os.path.isfile(args.filename):
+    if args.backend == "panel":
+        if not args.filename:
+            print("Cachefile is required for the 'panel' backend")
+            exit(1)
+        if not os.path.isfile(args.filename):
+            print("Cachefile not found")
+            exit(1)
+
+    if (
+        args.backend == "streamlit"
+        and args.filename
+        and not os.path.isfile(args.filename)
+    ):
         print("Cachefile not found")
         exit(1)
 
@@ -29,8 +41,10 @@ def main():
             "run",
             script_path,
             "--",
-            args.filename,
         ]
+        # pass filename only when provided
+        if args.filename:
+            cmd.append(args.filename)
         subprocess.run(cmd)
         return
 
