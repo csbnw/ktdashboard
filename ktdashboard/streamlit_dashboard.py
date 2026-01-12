@@ -77,7 +77,6 @@ class StreamlitDashboard:
 
     def render(self):
         st.set_page_config(layout="wide", page_title="Kernel Tuner Dashboard")
-        st.title("Kernel Tuner Dashboard")
 
         kernel_name = self.model.kernel_name
         device_name = self.model.device_name
@@ -135,7 +134,7 @@ class StreamlitDashboard:
 
         filtered_df = self.model.get_filtered_df()
 
-        st.markdown(f"## Auto-tuning {kernel_name} on {device_name}")
+        st.markdown(f"### Auto-tuning {kernel_name} on {device_name}")
 
         plot_height = self.plot_height
         if not show_table:
