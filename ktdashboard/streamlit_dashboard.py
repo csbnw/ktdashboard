@@ -20,8 +20,6 @@ class StreamlitDashboard:
     def load_from_uploaded_file(self, uploaded_file) -> None:
         tf = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
         content = uploaded_file.read()
-        #if isinstance(content, str):
-        #    content = content.encode("utf-8")
         tf.write(content)
         tf.flush()
         tf.close()
